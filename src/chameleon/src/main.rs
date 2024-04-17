@@ -97,7 +97,8 @@ async fn function_handler(event: Request) -> Result<impl IntoResponse, Error> {
     let nasa_api_key = "NASA_API_KEY".to_string();
 
     println!("grabing pk and nasa api key");
-    let public_key = ssm.get_parameter()
+    let public_key = ssm
+        .get_parameter()
         .set_name(Some(public_key.clone()))
         .with_decryption(true)
         .send()
@@ -108,9 +109,8 @@ async fn function_handler(event: Request) -> Result<impl IntoResponse, Error> {
         .value
         .unwrap();
 
-
-
-  let nasa_api_key = ssm.get_parameter()
+    let nasa_api_key = ssm
+        .get_parameter()
         .set_name(Some(nasa_api_key.clone()))
         .with_decryption(true)
         .send()
@@ -161,7 +161,7 @@ async fn function_handler(event: Request) -> Result<impl IntoResponse, Error> {
                             .map_err(Box::new)?);
                     }
                     if command_name == "space" {
-                        return space_cmd_handler();
+                        return space_cmd_handler(&nasa_api_key).await;
                     }
 
                     // methods for different types of application commands
@@ -223,18 +223,44 @@ async fn function_handler(event: Request) -> Result<impl IntoResponse, Error> {
     )
 }
 
-fn space_cmd_handler() -> Result<Response<String>, Error> {
+#[derive(Serialize, Deserialize, Debug)]
+struct NasaApiResponseData {
+    url: String,
+    title: String,
+    explanation: String,
+}
+
+async fn space_cmd_handler(nasa_api_key: &str) -> Result<Response<String>, Error> {
+    // make request to nasa API
+
+    let client = reqwest::Client::new();
+    let reqwest_res = client
+            .get(format!(
+                "https://api.nasa.gov/planetary/apod?api_key={}",
+                nasa_api_key
+            ))
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+
+    println!("response {:?}", &reqwest_res);
+    let nasa_res: NasaApiResponseData = serde_json::from_str(&reqwest_res)
+    .unwrap();
+    // destructure response
+
     let res = CustomEmbedResponse {
         kind: 4,
         data: EmbedResponseData {
-            content: "blahblah".to_owned(),
+            content: nasa_res.explanation,
             embeds: vec![EmbedData {
                 kind: "rich".to_owned(),
-                title: "Fake title".to_owned(),
+                title: nasa_res.title,
                 color: 0x00FFFF,
                 image: ImageData {
-                    url: "https://apod.nasa.gov/apod/image/2212/M16Pillar_WebbOzsarac_1668.jpg"
-                        .to_owned(),
+                    url: nasa_res.url,
                     height: 0,
                     width: 0,
                 },
