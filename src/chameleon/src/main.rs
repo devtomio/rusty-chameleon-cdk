@@ -3,6 +3,8 @@ use lambda_http::{run, service_fn, Error, IntoResponse, Request, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::env;
+extern crate url;
+use url::form_urlencoded;
 
 fn verify_key(
     body: &[u8],
@@ -250,6 +252,9 @@ async fn space_cmd_handler(nasa_api_key: &str) -> Result<Response<String>, Error
     let nasa_res: NasaApiResponseData = serde_json::from_str(&reqwest_res)
     .unwrap();
     // destructure response
+    //
+    let encoded_url = url::Url::parse(&nasa_res.url).unwrap().to_string();
+    println!("returning with encoded url: {:?}", &encoded_url);
 
     let res = CustomEmbedResponse {
         kind: 4,
@@ -260,7 +265,7 @@ async fn space_cmd_handler(nasa_api_key: &str) -> Result<Response<String>, Error
                 title: nasa_res.title,
                 color: 0x00FFFF,
                 image: ImageData {
-                    url: nasa_res.url,
+                    url: encoded_url,
                     height: 0,
                     width: 0,
                 },
